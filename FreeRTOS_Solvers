@@ -1,0 +1,151 @@
+#include <Arduino_FreeRTOS.h>
+#include <SoftwareSerial.h>
+#include <math.h>
+#include <stdio.h>
+
+SoftwareSerial mySerial(0, 1); // RX, TX
+// define two tasks for Blink & AnalogRead
+
+// Parametros
+struct states {
+  double G;
+  double I;
+  double X;
+  double t;
+};
+
+struct parameters {
+  double p1;
+  double p2;
+  double p3;
+  double tau;
+  double n;
+  double Gb;
+  double u;
+  double h;
+};
+struct states currentStates;
+struct parameters param;
+
+// Funcion de comida
+double m(float t) {
+  double Dg = 40.0;
+  double Ag = 0.8;
+  double tmax_I = 55.0;
+  double tmax_G = 40.0;
+  double tiempo_comida = 0.0;
+  double Vg = 13.79;
+  double m;
+
+  if (t < tiempo_comida) {
+    m = 0;
+  }
+  else {
+    t = t - tiempo_comida;
+    m = 100 * Dg*Ag*t*exp(-t / tmax_I) / (Vg*pow(tmax_G, 2));
+    //printf("%lf\n", m);
+  }
+  return m;
+}
+
+//Solucionador de Euler
+void eulerSolver(struct parameters *param, struct states *currentStates) {
+  double I_prox, X_prox, G_prox, t_prox;
+
+  I_prox = currentStates->I + param->h * ((-param->n * currentStates->I) + (param->tau * param->u));
+  X_prox = currentStates->X + param->h * ((-param->p2 * currentStates->X) + (param->p3 * currentStates->I));
+  G_prox = currentStates->G + param->h * (-(param->p1 + currentStates->X)*(currentStates->G) + param->p1 * param->Gb + m(currentStates->t));
+  t_prox = currentStates->t + param->h;
+
+  currentStates->t = t_prox;
+  currentStates->I = I_prox;
+  currentStates->G = G_prox;
+  currentStates->X = X_prox;
+}
+
+void TaskBlink( void *pvParameters );
+void TaskSerialWrite( void *pvParameters );
+
+// the setup function runs once when you press reset or power the board
+void setup() {
+
+  //Condiciones iniciales
+  currentStates.I = 0.0;
+  currentStates.X = 0.0;
+  currentStates.G = 120.0;
+  currentStates.t = 0.0;
+  
+  // Paciente
+  param.p1 = 0.0337;
+  param.p2 = 0.0209;
+  param.p3 = 7.5 * pow(10, -6);
+  param.tau = 1 / 12;
+  param.n = 0.214;
+  param.Gb = 120.0;
+  param.u = 48.0;
+  param.h = 1.0;
+  
+  // Now set up two tasks to run independently.
+  xTaskCreate(
+    TaskBlink
+    ,  (const portCHAR *)"Blink"   // A name just for humans
+    ,  128  // Stack size
+    ,  NULL
+    ,  2  // priority
+    ,  NULL );
+
+  xTaskCreate(
+    TaskSerialWrite
+    ,  (const portCHAR *) "SerialWrite"
+    ,  128 // This stack size can be checked & adjusted by reading Highwater
+    ,  NULL
+    ,  1  // priority
+    ,  NULL );
+
+  // Now the task scheduler, which takes over control of scheduling individual tasks, is automatically started.
+}
+
+void loop()
+{
+  // Empty. Things are done in Tasks.
+}
+
+/*--------------------------------------------------*/
+/*---------------------- Tasks ---------------------*/
+/*--------------------------------------------------*/
+
+void TaskBlink(void *pvParameters)  // This is a task.
+{
+  (void) pvParameters;
+
+  // initialize digital pin 13 as an output.
+  pinMode(13, OUTPUT);
+
+  for (;;) // A Task shall never return or exit.
+  {
+    digitalWrite(13, HIGH);   // turn the LED on (HIGH is the voltage level)
+    vTaskDelay( 1000 / portTICK_PERIOD_MS ); // wait for one second
+    digitalWrite(13, LOW);    // turn the LED off by making the voltage LOW
+    vTaskDelay( 1000 / portTICK_PERIOD_MS ); // wait for one second
+  }
+}
+
+void TaskSerialWrite(void *pvParameters)  // This is a task.
+{
+  (void) pvParameters;
+
+  // initialize serial communication at 9600 bits per second:
+  mySerial.begin(9600);
+
+  for (;;)
+  {
+    //double G = 200.0;
+    // read the input on analog pin 0:
+    //int sensorValue = analogRead(A0);
+    // print out the value you read:
+    eulerSolver(&param, &currentStates);
+    double tiempo = currentStates.t;
+    mySerial.println(currentStates.G);
+    vTaskDelay( 1000 / portTICK_PERIOD_MS );  // one tick delay (15ms) in between writes for stability
+  }
+}
