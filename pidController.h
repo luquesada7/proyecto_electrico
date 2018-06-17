@@ -1,24 +1,19 @@
-#ifndef pidController_H
-#define pidController_H
+#ifndef __PIDCONTROLLER_H
+#define __PIDCONTROLLER_H
 
-class pidController {
-public:
-	// Constructor
-	pidController(double input_Ts, double input_Kp, double input_Ti, double input_Td, double input_beta, double input_alpha) {
-	};
-	double getKp() { return Kp; };
-	virtual calculate_u(void);
-	//float get_u(void) { return ctrlsignal_u; };
+#include <math.h>
+#include <stdio.h>
 
-private:
-	// Parametros del PID
+struct pid_param {
 	double Ts;
 	double Kp;
 	double Ti;
 	double Td;
 	double beta;
 	double alpha;
-	// Calculo
+};
+
+struct pid_calc {
 	double setpoint;
 	double past_setpoint;
 	double procout;
@@ -29,6 +24,10 @@ private:
 	double integral;
 	double next_integral;
 	double ctrlsignal_u;
-}
+	double der_term;
+	double int_term;
+};
 
-#endif // pidController_H
+void calculate_u(struct pid_param *params, struct pid_calc *calc);
+
+#endif // __PIDCONTROLLER_H

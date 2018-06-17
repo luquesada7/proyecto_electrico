@@ -3,7 +3,7 @@
 #include <stdio.h>
 
 /*
- * TODO: Add a description
+ * TODO: Agregar descripción
  */
 double m(float t)
 {
@@ -27,7 +27,7 @@ double m(float t)
 };
 
 /*
- * TODO: Add a description
+ * TODO: Agregar descripción
  */
 void eulerSolver(struct parameters *param, struct states *currentStates)
 {
@@ -48,7 +48,7 @@ void eulerSolver(struct parameters *param, struct states *currentStates)
 };
 
 /*
- * TODO: Add a description
+ * TODO: Agregar descripción
  */
 void rungeKutta4Solver(struct parameters *param, struct states *currentStates)
 {

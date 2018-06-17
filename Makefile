@@ -1,15 +1,14 @@
 CC=gcc
 CFLAGS=-I.
-ODIR=obj
 LIBS=-lm
 
-DEPS = modelos.h
-OBJ = main.o modelos.o
+DEPS = modelos.h lqrController.h pidController.h
+OBJ = main.o modelos.o lqrController.o pidController.o
 
 %.o: %.c $(DEPS)
 	$(CC) -c -o $@ $< $(CFLAGS)
 
-modelos: $(OBJ)
+test: $(OBJ)
 	$(CC) -o $@ $^ $(CFLAGS) $(LIBS)
 
 .PHONY: clean
