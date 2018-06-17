@@ -1,9 +1,9 @@
-// v.1 
+// v.1
 // Date: 02/06/2018
-// Universidad de Costa Rica, Facultado de Ingeniería Eléctrica 
+// Universidad de Costa Rica, Facultad de Ingeniería Eléctrica 
 // Luisa Fernanda Quesada, luisa.quesadacamacho@ucr.ac.cr
 // PID_Control.c
-#include <stdio.h>  
+#include <stdio.h>
 #include <math.h>
 #include <C:\Users\lfquesad\Documents\Personal\Proyecto Eléctrico\C_code\pidController.h>
 
@@ -24,11 +24,11 @@ virtual pidController::calculate_u(void) {
 	der_term = (alpha*Ts) / (alpha*Td + Ts);
 	derivative = der_term * past_derivative - der_term * (procout - past_procout);
 	ctrlsignal_u = proportional + integral + derivative; // salida del controlador
-	// Calculo de valores anteriores 
+	// Calculo de valores anteriores
 	past_derivative = derivative;
 	past_setpoint = setpoint;
 	past_procout = procout;
-	// Calculo de valores siguientes 
+	// Calculo de valores siguientes
 	int_term = Ts * Kp / Ti;
 	next_integral = integral + int_term * (procout - setpoint);
 };
