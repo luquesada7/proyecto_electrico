@@ -1,0 +1,41 @@
+#include <Arduino_FreeRTOS.h>
+#include <Wire.h>
+
+void TaskReceivei2c( void *pvParameters );
+
+void setup() {
+
+  Wire.begin();        // join i2c bus (address optional for master)
+  Serial.begin(9600);
+  
+   xTaskCreate(
+    TaskReceivei2c
+    ,  (const portCHAR *)"i2c"   // A name just for humans
+    ,  128  // Stack size
+    ,  NULL
+    ,  1  // priority
+    ,  NULL );
+  // Now the task scheduler, which takes over control of scheduling individual tasks, is automatically started.
+}
+
+
+void loop()
+{
+  // Empty. Things are done in Tasks.
+}
+
+void TaskReceivei2c(void *pvParameters)  // This is a task.
+{
+  (void) pvParameters;
+  
+  for (;;)
+  {
+    Wire.requestFrom(8, 6);    // request 6 bytes from slave device #8
+
+    while (Wire.available()) { // slave may send less than requested
+      char c = Wire.read(); // receive a byte as character
+      Serial.print(c);         // print the character
+    }
+    vTaskDelay( 2000 / portTICK_PERIOD_MS );  // one tick delay (15ms) in between writes for stability
+  }
+}
