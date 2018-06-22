@@ -1,6 +1,7 @@
-#ifndef __MODELOS_H
-#define __MODELOS_H
+#ifndef __EULER_SOLVER_H
+#define __EULER_SOLVER_H
 
+// Estados del modelo minimo de Bergman
 struct states {
 	double G;
 	double I;
@@ -8,6 +9,7 @@ struct states {
 	double t;
 };
 
+// Parametros del modelo minimo de Bergman
 struct parameters {
 	double p1;
 	double p2;
@@ -19,8 +21,15 @@ struct parameters {
 	double h;
 };
 
-double m(float t);
-void eulerSolver(struct parameters *param, struct states *currentStates);
-void rungeKutta4Solver(struct parameters *param, struct states *currentStates);
+// Parametros de la funcion de comida
+struct food_parameters {
+	double Dg;
+	double Ag;
+	double tmax_I;
+	double tmax_G;
+	double tiempo_comida;
+	double Vg;
 
-#endif // __MODELOS_H
+};
+
+#endif
