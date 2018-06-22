@@ -143,7 +143,7 @@ void setup() {
 	// Tareas de FreeRTOS
 	xTaskCreate(
 		Taski2c
-		, (const portCHAR *)"Blink"   // A name just for humans
+		, (const portCHAR *)"i2c"   // A name just for humans
 		, 128  // Stack size
 		, NULL
 		, 2  // priority
@@ -151,7 +151,7 @@ void setup() {
 
 	xTaskCreate(
 		TaskBergman
-		, (const portCHAR *) "SerialWrite"
+		, (const portCHAR *) "Bergman"
 		, 128 // This stack size can be checked & adjusted by reading Highwater
 		, NULL
 		, 1  // priority
