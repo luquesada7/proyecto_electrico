@@ -12,19 +12,53 @@
 
 #include <Wire.h>
 
-void setup() {
+void setup()
+{
   Wire.begin();        // join i2c bus (address optional for master)
   Serial.begin(9600);  // start serial for output
-  //Wire.onRequest(requestEvent);
 }
-
-void loop() {
-  Wire.requestFrom(8, 6);    // request 6 bytes from slave device #8
-
-  while (Wire.available()) { // slave may send less than requested
-    char c = Wire.read(); // receive a byte as character
-    Serial.print(c);         // print the character
+ 
+void loop()
+{
+  int c = sayHello(1); // 1 - slave's address
+  Serial.println(c);
+  
+  delay (100);
+}
+ 
+int sayHello(byte SlaveDeviceId){
+ 
+  // SEND COMMAND 
+  Wire.beginTransmission(SlaveDeviceId);
+  Wire.write(1); // Transfer salute ("holla") to get X sensor value;
+  delay(10);
+ 
+  // GET RESPONSE
+  int receivedResponse;
+  int available = Wire.requestFrom(SlaveDeviceId, (byte)2);
+  if(available == 2)
+  {
+    receivedResponse = Wire.read() << 8 | Wire.read(); // combine two bytes into integer
   }
+  else
+  {
+    Serial.print("ERROR: Unexpected number of bytes received (XSensorValue): ");
+    Serial.println(available);
+  }
+  Wire.endTransmission();
+  
+  return receivedResponse;
+} 
 
-  delay(500);
-}
+
+
+
+
+
+
+
+
+
+
+
+
