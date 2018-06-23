@@ -1,0 +1,61 @@
+#include <Arduino_FreeRTOS.h>
+#include <stdio.h>
+#include <Wire.h>
+
+void Taski2cMaster(void *pvParameters);
+
+void setup()
+{
+  Wire.begin();        // join i2c bus (address optional for master)
+  Serial.begin(9600);  // start serial for output
+
+    xTaskCreate(
+    Taski2cMaster
+    , (const portCHAR *) "i2cMaster"
+    , 128 // This stack size can be checked & adjusted by reading Highwater
+    , NULL
+    , 1  // priority
+    , NULL);
+}
+
+void loop()
+{
+  // Vacio. Las funciones las realizan las tareas.
+}
+
+void Taski2cMaster(void *pvParameters)  // This is a task.
+{
+  (void)pvParameters;
+
+  for (;;)
+  {
+    int c = sayHello(1); // 1 - slave's address
+    Serial.println(c);
+    vTaskDelay(1000 / portTICK_PERIOD_MS);  // delay del tick de 1ms
+  }
+}
+
+int sayHello(byte SlaveDeviceId){
+ 
+  // SEND COMMAND 
+  Wire.beginTransmission(SlaveDeviceId);
+  Wire.write(1); // Transfer salute ("holla") to get X sensor value;
+  delay(10);
+ 
+  // GET RESPONSE
+  int receivedResponse;
+  int available = Wire.requestFrom(SlaveDeviceId, (byte)2);
+  if(available == 2)
+  {
+    receivedResponse = Wire.read() << 8 | Wire.read(); // combine two bytes into integer
+  }
+  else
+  {
+    Serial.print("ERROR: Unexpected number of bytes received (XSensorValue): ");
+    Serial.println(available);
+  }
+  Wire.endTransmission();
+  
+  return receivedResponse;
+} 
+
