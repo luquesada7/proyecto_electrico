@@ -1,0 +1,62 @@
+#include <Arduino_FreeRTOS.h>
+#include <stdio.h>
+#include <Wire.h>
+
+void TaskBlink(void *pvParameters);
+
+const byte SlaveDeviceId = 1;
+byte LastMasterCommand = 0;
+
+void setup() {
+
+  Serial.begin(9600);
+  Wire.begin(SlaveDeviceId);      // join i2c bus with Slave ID
+  Wire.onReceive(receiveCommand); // register talk event
+  Wire.onRequest(slavesRespond);  // register callback event
+
+  // Now set up two tasks to run independently.
+  xTaskCreate(
+    TaskBlink
+    ,  (const portCHAR *)"Blink"   // A name just for humans
+    ,  128  // Stack size
+    ,  NULL
+    ,  1  // priority
+    ,  NULL );
+}
+
+void loop() {
+  // put your main code here, to run repeatedly:
+
+}
+
+void TaskBlink(void *pvParameters)  // This is a task.
+{
+  (void) pvParameters;
+
+  // initialize digital pin 13 as an output.
+  pinMode(13, OUTPUT);
+
+  for (;;) // A Task shall never return or exit.
+  {
+    digitalWrite(13, HIGH);   // turn the LED on (HIGH is the voltage level)
+    vTaskDelay( 1000 / portTICK_PERIOD_MS ); // wait for one second
+    digitalWrite(13, LOW);    // turn the LED off by making the voltage LOW
+    vTaskDelay( 1000 / portTICK_PERIOD_MS ); // wait for one second
+  }
+}
+
+void receiveCommand(int howMany){
+  LastMasterCommand = Wire.read(); // 1 byte (maximum 256 commands)
+  Serial.println(LastMasterCommand);
+}
+ 
+void slavesRespond(){
+  int returnValue = 50;
+  if(LastMasterCommand == 1){
+    byte buffer[2];                 // split int value into two bytes buffer
+    buffer[0] = returnValue >> 8;
+    buffer[1] = returnValue & 255;
+    Wire.write(buffer, 2);          // return response to last command
+    LastMasterCommand = 0; 
+  }
+}
