@@ -1,0 +1,195 @@
+#include <Arduino_FreeRTOS.h>
+#include <stdio.h>
+#include <Wire.h>
+#include <math.h>
+
+void Taski2cMaster(void *pvParameters);
+void TaskBergman(void *pvParameters);
+double glucose;
+
+// Parametros
+struct states {
+  double G;
+  double I;
+  double X;
+  double t;
+};
+
+struct parameters {
+  double p1;
+  double p2;
+  double p3;
+  double tau;
+  double n;
+  double Gb;
+  double u;
+  double h;
+};
+struct states currentStates;
+struct parameters param;
+
+/*----------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------*/
+// Funcion de comida
+double m(float t) {
+  double Dg = 40.0;
+  double Ag = 0.8;
+  double tmax_I = 55.0;
+  double tmax_G = 40.0;
+  double tiempo_comida = 0.0;
+  double Vg = 13.79;
+  double m;
+
+  if (t < tiempo_comida) {
+    m = 0;
+  }
+  else {
+    t = t - tiempo_comida;
+    m = 100 * Dg*Ag*t*exp(-t / tmax_I) / (Vg*pow(tmax_G, 2));
+    //printf("%lf\n", m);
+  }
+  return m;
+}
+
+/*----------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------*/
+
+//Solucionador de Euler
+void eulerSolver(struct parameters *param, struct states *currentStates) {
+  double I_prox, X_prox, G_prox, t_prox;
+
+  I_prox = currentStates->I + param->h * ((-param->n * currentStates->I) + (param->tau * param->u));
+  X_prox = currentStates->X + param->h * ((-param->p2 * currentStates->X) + (param->p3 * currentStates->I));
+  G_prox = currentStates->G + param->h * (-(param->p1 + currentStates->X)*(currentStates->G) + param->p1 * param->Gb + m(currentStates->t));
+  t_prox = currentStates->t + param->h;
+
+  currentStates->t = t_prox;
+  currentStates->I = I_prox;
+  currentStates->G = G_prox;
+  currentStates->X = X_prox;
+}
+
+/*----------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------*/
+
+void setup()
+{
+  Wire.begin();        // join i2c bus (address optional for master)
+  Serial.begin(9600);  // start serial for output
+
+  //Condiciones iniciales
+  currentStates.I = 0.0;
+  currentStates.X = 0.0;
+  currentStates.G = 120.0;
+  currentStates.t = 0.0;
+  
+  // Paciente
+  param.p1 = 0.0337;
+  param.p2 = 0.0209;
+  param.p3 = 7.5 * pow(10, -6);
+  param.tau = 1 / 12;
+  param.n = 0.214;
+  param.Gb = 120.0;
+  param.u = 48.0;
+  param.h = 1.0;
+
+    xTaskCreate(
+    TaskBergman
+    , (const portCHAR *) "Bergman"
+    , 128 // This stack size can be checked & adjusted by reading Highwater
+    , NULL
+    , 2  // priority
+    , NULL);
+
+    xTaskCreate(
+    Taski2cMaster
+    , (const portCHAR *) "i2cMaster"
+    , 128 // This stack size can be checked & adjusted by reading Highwater
+    , NULL
+    , 1  // priority
+    , NULL);
+}
+
+void loop()
+{
+  // Vacio. Las funciones las realizan las tareas.
+}
+
+/*----------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------*/
+
+void TaskBergman(void *pvParameters)  // This is a task.
+{
+  (void)pvParameters;
+  TickType_t xLastWakeTime;
+  const TickType_t xFrequency = 60;
+
+  // Initialise the xLastWakeTime variable with the current time.
+  xLastWakeTime = xTaskGetTickCount();
+
+  for (;;)
+  {
+   
+    eulerSolver(&param, &currentStates);
+    glucose = currentStates.G;
+    //Serial.println(glucose);
+    vTaskDelayUntil( &xLastWakeTime, xFrequency );
+  }
+}
+
+/*----------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------*/
+
+void Taski2cMaster(void *pvParameters)  // This is a task.
+{
+  (void)pvParameters;
+  TickType_t xLastWakeTime;
+  const TickType_t xFrequency = 200;
+
+  // Initialise the xLastWakeTime variable with the current time.
+  xLastWakeTime = xTaskGetTickCount();
+
+  for (;;)
+  {
+    //Serial.println("hola");
+    double insulin = sendGlucose(1); // 1 - slave's address
+    Serial.println(insulin);
+    //vTaskDelay(1000 / portTICK_PERIOD_MS);  // delay del tick de 1ms
+    vTaskDelayUntil( &xLastWakeTime, xFrequency );
+  }
+}
+
+/*----------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------*/
+
+double sendGlucose(byte SlaveDeviceId){
+ 
+  // SEND COMMAND 
+  Wire.beginTransmission(SlaveDeviceId);
+  Wire.write("%lf", glucose); // Enviar el valor de glucosa 
+  delay(10);
+ 
+  // GET RESPONSE
+  double receivedResponse;
+  int available = Wire.requestFrom(SlaveDeviceId, (byte)4);
+  if(available == 4)
+  {
+    receivedResponse = Wire.read() << 8 | Wire.read(); // combine two bytes into integer
+  }
+  else
+  {
+    Serial.print("ERROR: Unexpected number of bytes received: ");
+    Serial.println(available);
+  }
+  
+  Wire.endTransmission();
+  
+  return receivedResponse;
+} 
+
