@@ -1,0 +1,199 @@
+#include <Arduino_FreeRTOS.h>
+#include <stdio.h>
+#include <Wire.h>
+#include <EasyTransferI2C.h>
+
+/*----------------------------------------------------------------------------------------*/
+/*------------------------------------EasyTransfer----------------------------------------*/
+/*----------------------------------------------------------------------------------------*/
+
+//create object
+EasyTransferI2C ET; 
+
+void Taski2cSlave(void *pvParameters);
+void TaskBergman(void *pvParameters);
+
+struct RECEIVE_DATA_STRUCTURE{
+  //put your variable definitions here for the data you want to receive
+  //THIS MUST BE EXACTLY THE SAME ON THE OTHER ARDUINO
+  double glucose;
+  double insulin;
+};
+
+//give a name to the group of data
+RECEIVE_DATA_STRUCTURE mydata;
+
+//define slave and master i2c address
+#define I2C_SLAVE_ADDRESS 9
+#define I2C_MASTER_ADDRESS 2
+
+/*----------------------------------------------------------------------------------------*/
+/*-----------------------------------Parametros-------------------------------------------*/
+/*----------------------------------------------------------------------------------------*/
+
+double glucose;
+
+// Parametros
+struct states {
+  double G;
+  double I;
+  double X;
+  double t;
+};
+
+struct parameters {
+  double p1;
+  double p2;
+  double p3;
+  double tau;
+  double n;
+  double Gb;
+  double u;
+  double h;
+};
+
+// Declaracion de structs
+struct states currentStates;
+struct parameters param;
+
+/*----------------------------------------------------------------------------------------*/
+/*-------------------------------Funcion de comida ---------------------------------------*/
+/*----------------------------------------------------------------------------------------*/
+// Funcion de comida
+double m(float t) {
+  double Dg = 40.0;
+  double Ag = 0.8;
+  double tmax_I = 55.0;
+  double tmax_G = 40.0;
+  double tiempo_comida = 0.0;
+  double Vg = 13.79;
+  double m;
+
+  if (t < tiempo_comida) {
+    m = 0;
+  }
+  else {
+    t = t - tiempo_comida;
+    m = 100 * Dg*Ag*t*exp(-t / tmax_I) / (Vg*pow(tmax_G, 2));
+    //Serial.println(m);
+  }
+  return m;
+}
+
+/*----------------------------------------------------------------------------------------*/
+/*------------------------------Solucionador de Euler-------------------------------------*/
+/*----------------------------------------------------------------------------------------*/
+
+//Solucionador de Euler
+void eulerSolver(struct parameters *param, struct states *currentStates) {
+  double I_prox, X_prox, G_prox, t_prox;
+
+  I_prox = currentStates->I + param->h * ((-param->n * currentStates->I) + (param->tau * param->u));
+  X_prox = currentStates->X + param->h * ((-param->p2 * currentStates->X) + (param->p3 * currentStates->I));
+  G_prox = currentStates->G + param->h * (-(param->p1 + currentStates->X)*(currentStates->G) + param->p1 * param->Gb + m(currentStates->t));
+  t_prox = currentStates->t + param->h;
+
+  currentStates->t = t_prox;
+  currentStates->I = I_prox;
+  currentStates->G = G_prox;
+  currentStates->X = X_prox;
+}
+
+/*----------------------------------------------------------------------------------------*/
+/*-------------------------------------Set up---------------------------------------------*/
+/*----------------------------------------------------------------------------------------*/
+
+
+void setup(){
+  Serial.begin(9600);
+  Wire.begin(I2C_SLAVE_ADDRESS);
+  //start the library, pass in the data details and the name of the serial port. Can be Serial, Serial1, Serial2, etc. 
+  ET.begin(details(mydata), &Wire);
+  //define handler function on receiving data
+  Wire.onReceive(receive);  
+
+  //Condiciones iniciales
+  currentStates.I = 0.0;
+  currentStates.X = 0.0;
+  currentStates.G = 120.0;
+  currentStates.t = 0.0;
+  
+  // Paciente
+  param.p1 = 0.0337;
+  param.p2 = 0.0209;
+  param.p3 = 7.5 * pow(10, -6);
+  param.tau = 1 / 12;
+  param.n = 0.214;
+  param.Gb = 120.0;
+  param.u = 48.0;
+  param.h = 1.0;
+  
+    xTaskCreate(
+    TaskBergman
+    , (const portCHAR *) "Bergman"
+    , 128 // This stack size can be checked & adjusted by reading Highwater
+    , NULL
+    , 1  // priority
+    , NULL);
+    
+    xTaskCreate(
+    Taski2cSlave
+    , (const portCHAR *) "i2cSlave"
+    , 128 // This stack size can be checked & adjusted by reading Highwater
+    , NULL
+    , 2  // priority
+    , NULL);
+}
+
+
+void loop()
+{
+  // Vacio. Las funciones las realizan las tareas.
+}
+
+void TaskBergman(void *pvParameters)  // This is a task.
+{
+  (void)pvParameters;
+  TickType_t xLastWakeTime;
+  const TickType_t xFrequency = 60;
+
+  // Initialise the xLastWakeTime variable with the current time.
+  xLastWakeTime = xTaskGetTickCount();
+
+  for (;;)
+  {
+   
+    eulerSolver(&param, &currentStates);
+    glucose = currentStates.G;
+    Serial.println(glucose);
+    vTaskDelayUntil( &xLastWakeTime, xFrequency );
+  }
+}
+
+
+void Taski2cSlave(void *pvParameters)  // This is a task.
+{
+  (void)pvParameters;
+  TickType_t xLastWakeTime;
+  const TickType_t xFrequency = 200;
+
+  // Initialise the xLastWakeTime variable with the current time.
+  xLastWakeTime = xTaskGetTickCount();
+
+  for (;;)
+  {
+    mydata.glucose = glucose;
+    //send the data
+    ET.sendData(I2C_MASTER_ADDRESS);
+    vTaskDelayUntil( &xLastWakeTime, xFrequency );
+  }
+}
+
+void receive(int numBytes) {
+  Serial.println("Receiving");
+  if(ET.receiveData()){
+    //Serial.print("Insulin:");
+    //Serial.print(mydata.insulin);
+    Serial.print("\n"); 
+  }
+}
