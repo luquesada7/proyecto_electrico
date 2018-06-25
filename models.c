@@ -1,14 +1,14 @@
 #include <stdio.h>  
 #include <math.h>
-#include <C:\Users\lfquesad\Documents\Personal\Proyecto Eléctrico\C_code\modelos.h>
+#include "models.h"
 
 double m(float t, struct food_parameters *food) {
 	double m;
-	if (t < food->tiempo_comida) {
+	if (t < food->time_food) {
 		m = 0.0;
 	}
 	else {
-		t = t - food->tiempo_comida;
+		t = t - food->time_food;
 		m = 100.0 * food->Dg*food->Ag*t*exp(-t / food->tmax_I) / (food->Vg*pow(food->tmax_G, 2.0));
 	}
 	return m;
@@ -134,7 +134,7 @@ int main() {
 	food.Ag = 0.8;
 	food.tmax_I = 55.0;
 	food.tmax_G = 40.0;
-	food.tiempo_food = 300.0;
+	food.time_food = 300.0;
 	food.Vg = 13.79;
 	
 
