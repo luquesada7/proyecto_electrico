@@ -1,0 +1,54 @@
+#include <Wire.h>
+#include <EasyTransferI2C.h>
+
+//create object
+EasyTransferI2C ET; 
+
+struct SEND_DATA_STRUCTURE{
+  //put your variable definitions here for the data you want to send
+  //THIS MUST BE EXACTLY THE SAME ON THE OTHER ARDUINO
+  double glucose;
+  double insulin;
+};
+
+
+struct RECEIVE_DATA_STRUCTURE{
+  //put your variable definitions here for the data you want to send
+  //THIS MUST BE EXACTLY THE SAME ON THE OTHER ARDUINO
+  double insulin;
+};
+
+//give a name to the group of data
+SEND_DATA_STRUCTURE mydata;
+RECEIVE_DATA_STRUCTURE mydata2;
+
+//define slave and master i2c address
+#define I2C_SLAVE_ADDRESS 9
+#define I2C_MASTER_ADDRESS 2
+
+
+void setup(){
+  Serial.begin(9600);
+  Wire.begin(I2C_MASTER_ADDRESS);
+  //start the library, pass in the data details and the name of the serial port. Can be Serial, Serial1, Serial2, etc.
+  ET.begin(details(mydata), &Wire);  
+  Wire.onReceive(receive);
+}
+
+void loop(){
+  Serial.println("hello");
+  //this is how you access the variables. [name of the group].[variable name]
+  mydata.glucose = 125.6;
+  //send the data
+  ET.sendData(I2C_SLAVE_ADDRESS);
+  delay(5000);
+}
+
+void receive(int numBytes) {
+  Serial.println("Receiving");
+  if(ET.receiveData()){
+    Serial.print("Insulin:");
+    Serial.print(mydata.insulin);
+    Serial.print("\n");
+  }
+}
