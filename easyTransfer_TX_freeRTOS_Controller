@@ -176,7 +176,7 @@ void Taski2cMaster(void *pvParameters)  // This is a task.
 
   for (;;)
   {
-    mydata.insulin = 48.0;
+    mydata.insulin = ctrlsig_u;
     //send the data
     ET.sendData(I2C_SLAVE_ADDRESS);
     vTaskDelayUntil( &xLastWakeTime, xFrequency );
