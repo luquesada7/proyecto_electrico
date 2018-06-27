@@ -178,7 +178,8 @@ void setup(){
   param.tau = 0.083333;
   param.n = 0.214;
   param.Gb = 144.0;
-  param.h = 1.0;
+  param.h = 1;//1.0/60.0;
+  param.u = 0.0;
 
   // Parametros de una comida
   food.Dg = 60.0;
@@ -211,22 +212,25 @@ void loop()
   // Vacio. Las funciones las realizan las tareas.
 }
 
+/*----------------------------------------------------------------------------------------*/
+/*-------------------------------------Tasks----------------------------------------------*/
+/*----------------------------------------------------------------------------------------*/
+
 void TaskBergman(void *pvParameters)  // This is a task.
 {
   (void)pvParameters;
   TickType_t xLastWakeTime;
-  const TickType_t xFrequency = 60;
+  const TickType_t xFrequency = (1000/portTICK_PERIOD_MS);
 
   // Initialise the xLastWakeTime variable with the current time.
   xLastWakeTime = xTaskGetTickCount();
 
   for (;;)
   {
-   
     eulerSolver(&param, &currentStates, &food);
     //rungeKutta4Solver(&param, &currentStates, &food);
     glucose = currentStates.G;
-    Serial.println(glucose);
+    //Serial.println(currentStates.t);
     vTaskDelayUntil( &xLastWakeTime, xFrequency );
   }
 }
@@ -236,7 +240,7 @@ void Taski2cSlave(void *pvParameters)  // This is a task.
 {
   (void)pvParameters;
   TickType_t xLastWakeTime;
-  const TickType_t xFrequency = 200;
+  const TickType_t xFrequency = (20000/portTICK_PERIOD_MS);
 
   // Initialise the xLastWakeTime variable with the current time.
   xLastWakeTime = xTaskGetTickCount();
@@ -244,6 +248,7 @@ void Taski2cSlave(void *pvParameters)  // This is a task.
   for (;;)
   {
     mydata.glucose = glucose;
+    Serial.println(glucose);
     //send the data
     ET.sendData(I2C_MASTER_ADDRESS);
     vTaskDelayUntil( &xLastWakeTime, xFrequency );
@@ -253,9 +258,6 @@ void Taski2cSlave(void *pvParameters)  // This is a task.
 void receive(int numBytes) {
   //Serial.println("Receiving");
   if(ET.receiveData()){
-    param.u = mydata.insulin;
-    //Serial.print("Insulin:");
-    //Serial.println(param.u);
-    //Serial.print("\n"); 
+    //param.u = mydata.insulin;
   }
 }
