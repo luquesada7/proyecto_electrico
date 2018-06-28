@@ -44,11 +44,17 @@ double pidController(struct pid_param *params, struct pid_calc *calc)
 {
   double ctrlsig_u;
 
+//  Serial.print("Glucose: ");
+//  Serial.print(calc->procout);
+//  Serial.print("\n");
+  
   // Calculo de valores actuales
   calc->proportional = params->Kp * (params->beta * calc->setpoint - calc->procout);
   calc->der_term = (params->alpha * params->Td) / (params->alpha * params->Td + params->Ts);
   calc->derivative = calc->der_term * calc->past_derivative - calc->der_term * (calc->procout - calc->past_procout);
   calc->ctrlsignal_u = 48.2328 + calc->proportional + calc->integral + calc->derivative; // salida del controlador
+
+  Serial.println(calc->ctrlsignal_u);
 
                                                // Calculo de valores anteriores
   calc->past_derivative = calc->derivative;
@@ -118,7 +124,6 @@ double lqrController(
 /*-------------------------------------Set up---------------------------------------------*/
 /*----------------------------------------------------------------------------------------*/
 void setup(){
-  pinMode(13, OUTPUT);
   Serial.begin(9600);
   Wire.begin(I2C_MASTER_ADDRESS);
   //start the library, pass in the data details and the name of the serial port. Can be Serial, Serial1, Serial2, etc.
@@ -195,11 +200,10 @@ void setup(){
 
 void receive(int numBytes) {
   if(ET.receiveData()){
-    digitalWrite(13, HIGH);
     delay(100); 
     glucose = mydata.glucose;
-    Serial.println(glucose);
-    data = 1;
+    calc.procout = glucose;
+    data = 1; // encendemos la bandera
   }
 }
 
@@ -211,13 +215,13 @@ void receive(int numBytes) {
 void loop()
 {
   if(data == 1){
-    ctrlsig_u = lqrController(&G, &H, &C, &Ke, &K1, &K2, &currentStates, r_act, glucose, &I_past);
-    //ctrlsig_u = pidController(&params, &calc);
+    data = 0; // bajamos la bandera
+    //ctrlsig_u = lqrController(&G, &H, &C, &Ke, &K1, &K2, &currentStates, r_act, glucose, &I_past);
+    ctrlsig_u = pidController(&params, &calc);
     mydata.insulin = ctrlsig_u;
+    //Serial.println(ctrlsig_u);
     ET.sendData(I2C_SLAVE_ADDRESS);
     delay(1000);
-    digitalWrite(13, LOW);
-    data = 0;
     }
   delay(1000);
 }
