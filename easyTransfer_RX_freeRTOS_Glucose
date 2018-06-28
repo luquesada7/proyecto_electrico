@@ -258,6 +258,6 @@ void Taski2cSlave(void *pvParameters)  // This is a task.
 void receive(int numBytes) {
   //Serial.println("Receiving");
   if(ET.receiveData()){
-    //param.u = mydata.insulin;
+    param.u = mydata.insulin;
   }
 }
