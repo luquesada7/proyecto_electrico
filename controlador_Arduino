@@ -17,7 +17,7 @@ EasyTransferI2C ET;
 struct SEND_DATA_STRUCTURE{
   //put your variable definitions here for the data you want to send
   //THIS MUST BE EXACTLY THE SAME ON THE OTHER ARDUINO
-  bool request;
+  double request;
   double glucose;
   double insulin;
 };
@@ -32,10 +32,10 @@ SEND_DATA_STRUCTURE mydata;
 /*********************************/
 /**** Definiciones Generales ****/
 /********************************/
-//int data;
+int data;
 double ctrlsig_u;  
 double insulin;
-bool flag_insulin;
+int flag_insulin;
 
 /************************************/
 /********* Controlador PID *********/
@@ -54,8 +54,18 @@ double pidController(struct pid_param *params, struct pid_calc *calc)
   calc->proportional = params->Kp * (params->beta * calc->setpoint - calc->procout);
   calc->der_term = (params->alpha * params->Td) / (params->alpha * params->Td + params->Ts);
   calc->derivative = calc->der_term * calc->past_derivative - calc->der_term * (calc->procout - calc->past_procout);
-  calc->ctrlsignal_u = 48.2328 + calc->proportional + calc->integral + calc->derivative; // salida del controlador
-
+  calc->ctrlsignal_u = 48.2328 + calc->proportional + calc->integral + calc->derivative; // salida del controlador (48.2328 +)
+//
+//  Serial.print("Proportional: ");
+//  Serial.print(calc->proportional);
+//  Serial.print(" , Integral: ");
+//  Serial.print(calc->integral);
+//  Serial.print(" , Derivative: ");
+//  Serial.print(calc->derivative);
+//  Serial.print(" , Ctrl_sig: ");
+//  Serial.print(calc->ctrlsignal_u);
+//  Serial.print("\n");
+  
     // Calculo de valores anteriores
   calc->past_derivative = calc->derivative;
   calc->past_setpoint = calc->setpoint;
@@ -65,10 +75,6 @@ double pidController(struct pid_param *params, struct pid_calc *calc)
   // Calculo de valores siguientes
   calc->int_term = params->Ts * params->Kp / params->Ti;
   calc->next_integral = calc->integral + calc->int_term * (calc->setpoint - calc->procout);
-  Serial.print(calc->integral);
-  Serial.print(" , ");
-  Serial.print(calc->int_term * (calc->setpoint - calc->procout));
-  Serial.print("\n");
 
   ctrlsig_u = calc->ctrlsignal_u;
   return ctrlsig_u;
@@ -155,6 +161,7 @@ void setup() {
   params.beta = 1;
   params.alpha = 0.01;
 
+  //calc.past_procout = 0.0;
   calc.past_procout = 120.0;
   calc.setpoint = calc.past_setpoint = 120.0;
 
@@ -198,8 +205,10 @@ void setup() {
 
   // Inicializacion de otras variables
   r_act = 120.0;
+  //y_act = 0.0;
   y_act = 120.0;
   I_past = 0.0;
+  ctrlsig_u = 0.0;
   ctrlsig_u = 48.238;
 
       xTaskCreate(
@@ -235,8 +244,7 @@ void TaskOne(void *pvParameters)  // This is a task.
 
   for (;;)
   {
-    Serial.println("Ask for glucose");
-    //Serial.println(mydata.glucose);
+    //Serial.println("Ask for glucose");
     mydata.request = 1;
     ET.sendData(I2C_SLAVE_ADDRESS);
     mydata.request = 0;
@@ -248,28 +256,27 @@ void TaskTwo(void *pvParameters)  // This is a task.
 {
   (void)pvParameters;
   TickType_t xLastWakeTime;
-  const TickType_t xFrequency = (5500/portTICK_PERIOD_MS);
+  const TickType_t xFrequency = (2000/portTICK_PERIOD_MS);
 
   // Initialise the xLastWakeTime variable with the current time.
   xLastWakeTime = xTaskGetTickCount();
 
   for (;;)
   {
-    if(ET.receiveData())
-    { 
+    if(ET.receiveData()){ 
     //Serial.println("Receiving glucose");
     //Serial.println(mydata.glucose);
     y_act = mydata.glucose;
     calc.procout = mydata.glucose;
     flag_insulin = 1;
-    }
-    if(flag_insulin){
+  }
+    if(flag_insulin == 1){
       flag_insulin = 0;
       //ctrlsig_u = lqrController(&G, &H, &C, &Ke, &K1, &K2, &currentStates, r_act, y_act, &I_past);
       ctrlsig_u = pidController(&params, &calc);
       mydata.insulin = ctrlsig_u;
       //Serial.println("Sending Insulin");
-      //Serial.println(mydata.insulin);
+      Serial.println(mydata.insulin);
       mydata.request = 0;
       ET.sendData(I2C_SLAVE_ADDRESS);
       }
@@ -281,11 +288,4 @@ void TaskTwo(void *pvParameters)  // This is a task.
 /*----------------------------------------------------------------------------------------*/
 //
 void receive(int numBytes) {
-//  if(ET.receiveData()){ 
-//    //Serial.println("Receiving glucose");
-//    //Serial.println(mydata.glucose);
-//    y_act = mydata.glucose;
-//    calc.procout = mydata.glucose;
-//    flag_insulin = 1;
-//  }
 }
